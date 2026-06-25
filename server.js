@@ -1,5 +1,6 @@
 import express from "express";
 import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
 const app = express();
 app.use(express.json());
 app.get("/", (req,res)=>{
@@ -34,8 +35,7 @@ app.post("/auth/register", async(req, res)=>{
     if(password.length<8){
         return res.status(400).json({success: false, message: "Password length should be atleast 8 characters"});
     }
-    
-    console.log(username, email, password);
+
     users.push({
         username,
         email,
@@ -49,20 +49,83 @@ app.post("/auth/register", async(req, res)=>{
 app.get("/users", (req, res)=>{
    res.status(200).json({success: true, users})
 })
-app.post("/auth/login", async(req, res)=>{
-    const {email, password} = req.body;
-    const User = users.find((user)=> user.email === email);
-    const isMatch = await bcrypt.compare(password, User.hashedPassword);
-    if(!User){
-        return res.status(404).json({success: false, message: "User not found"});
-    }
-    if(!isMatch){
-        return res.status(401).json({success: false, message: "Unauthorized"});
+function auth(req, res, next) {
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader) {
+        return res.status(401).json({
+            success: false,
+            message: "No token provided"
+        });
     }
 
-   return res.status(200).json({success:true, message: "User logged in successfully"});
+    const token = authHeader.split(" ")[1];
 
-})
+    try {
+        const decoded = jwt.verify(
+            token,
+            "secret_key"
+        );
+
+        req.user = decoded;
+
+        next();
+    } catch (err) {
+        return res.status(401).json({
+            success: false,
+            message: "Invalid token"
+        });
+    }
+    next();
+}
+app.post("/auth/login", async (req, res) => {
+
+    const { email, password } = req.body;
+
+    const user = users.find(
+        user => user.email === email
+    );
+
+    if (!user) {
+        return res.status(404).json({
+            success: false,
+            message: "User not found"
+        });
+    }
+
+    const isMatch = await bcrypt.compare(
+        password,
+        user.hashedPassword
+    );
+
+    if (!isMatch) {
+        return res.status(401).json({
+            success: false,
+            message: "Invalid credentials"
+        });
+    }
+
+    const token = jwt.sign(
+        {
+            email: user.email,
+            username: user.username
+        },
+        "secret_key"
+    );
+
+    return res.status(200).json({
+        success: true,
+        token
+    });
+});
+app.get("/auth/profile", auth, (req, res) => {
+
+    return res.status(200).json({
+        success: true,
+        user: req.user
+    });
+
+});
 app.listen(5000, ()=>{
     console.log("Server is running on port 5000");
 })
