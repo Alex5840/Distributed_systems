@@ -1,6 +1,7 @@
 import express from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import pool from "./db.js"
 const app = express();
 app.use(express.json());
 app.get("/", (req,res)=>{
@@ -15,39 +16,55 @@ app.post("/auth/register", async(req, res)=>{
    
     const {username,email, password} = req.body;
     
-    const existingUser = users.find((user)=> user.email === email);
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const result = await pool.query(
+        "SELECT * FROM users WHERE email = $1",
+        [email]
+    );
+    const existingUser = result.rows[0];
     if(existingUser){
         return res.status(409).json({success: false, message: "User already exists"});
     }
     if(!username){
-       return res.status(400).json({message: "Username is required"});
+        return res.status(400).json({message: "Username is required"});
     }
     if(!email){
-       return res.status(400).json({message: "Email is required"});
+        return res.status(400).json({message: "Email is required"});
     }
     if(!email.includes('@')){
         return res.status(400).json({message:"Invalid Email"});
     }
     if(!password){
-       return res.status(400).json({message: "Password is required"});
+        return res.status(400).json({message: "Password is required"});
     }
     if(password.length<8){
         return res.status(400).json({success: false, message: "Password length should be atleast 8 characters"});
     }
+    const hashedPassword = await bcrypt.hash(password, 10);
 
-    users.push({
-        username,
-        email,
-        hashedPassword
-    })
+    await pool.query(
+        "INSERT INTO users (username, email, password) VALUES ($1, $2, $3)",
+        [username, email, hashedPassword]
+    )
     return res.status(201).json({success: true, message: "User registered successfully"});
     
     
     
 })
-app.get("/users", (req, res)=>{
-   res.status(200).json({success: true, users})
+ 
+app.get("/auth/users", async (req, res) => {
+    try {
+        const result = await pool.query("SELECT * FROM users");
+        
+        return res.status(200).json({ success: true, users });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: "Error fetching users",
+            error: error.message
+
+        })
+        
+    }
 })
 function auth(req, res, next) {
     const authHeader = req.headers.authorization;
@@ -69,7 +86,7 @@ function auth(req, res, next) {
 
         req.user = decoded;
 
-        next();
+        
     } catch (err) {
         return res.status(401).json({
             success: false,
@@ -82,10 +99,11 @@ app.post("/auth/login", async (req, res) => {
 
     const { email, password } = req.body;
 
-    const user = users.find(
-        user => user.email === email
-    );
-
+    const result = await pool.query(
+        "SELECT * FROM users WHERE email = $1",
+        [email]
+    )
+   const user = result.rows[0];
     if (!user) {
         return res.status(404).json({
             success: false,
@@ -95,7 +113,7 @@ app.post("/auth/login", async (req, res) => {
 
     const isMatch = await bcrypt.compare(
         password,
-        user.hashedPassword
+        user.password
     );
 
     if (!isMatch) {
@@ -124,6 +142,15 @@ app.get("/auth/profile", auth, (req, res) => {
         success: true,
         user: req.user
     });
+    
+
+});
+app.get("/test-db", async (req, res) => {
+
+    const result =
+        await pool.query("SELECT NOW()");
+
+    res.json(result.rows);
 
 });
 app.listen(5000, ()=>{
