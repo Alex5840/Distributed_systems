@@ -2,6 +2,8 @@ import express from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import pool from "./db.js"
+import { validateUser } from "./src/middleware/authMiddleware.js";
+import { registerController } from "./src/controllers/authController.js";
 const app = express();
 app.use(express.json());
 app.get("/", (req,res)=>{
@@ -11,45 +13,7 @@ app.get("/", (req,res)=>{
 // register routes
 
 const users = [];
-app.post("/auth/register", async(req, res)=>{
-     
-   
-    const {username,email, password} = req.body;
-    
-    const result = await pool.query(
-        "SELECT * FROM users WHERE email = $1",
-        [email]
-    );
-    const existingUser = result.rows[0];
-    if(existingUser){
-        return res.status(409).json({success: false, message: "User already exists"});
-    }
-    if(!username){
-        return res.status(400).json({message: "Username is required"});
-    }
-    if(!email){
-        return res.status(400).json({message: "Email is required"});
-    }
-    if(!email.includes('@')){
-        return res.status(400).json({message:"Invalid Email"});
-    }
-    if(!password){
-        return res.status(400).json({message: "Password is required"});
-    }
-    if(password.length<8){
-        return res.status(400).json({success: false, message: "Password length should be atleast 8 characters"});
-    }
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    await pool.query(
-        "INSERT INTO users (username, email, password) VALUES ($1, $2, $3)",
-        [username, email, hashedPassword]
-    )
-    return res.status(201).json({success: true, message: "User registered successfully"});
-    
-    
-    
-})
+app.post("/auth/register",validateUser, registerController);
  
 app.get("/auth/users", async (req, res) => {
     try {
