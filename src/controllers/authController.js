@@ -1,5 +1,9 @@
 import bcrypt from "bcryptjs";
-import pool from "../../db.js";
+import pool from "../config/db.js";
+import jwt from "jsonwebtoken";
+import dotenv from "dotenv";
+
+dotenv.config();
 export const registerController = async(req, res)=>{
     try {
     const {username, email, password} = req.body;
@@ -20,4 +24,45 @@ export const registerController = async(req, res)=>{
         })
     }
     
+}
+export const loginController = async(req, res)=>{
+    const { email, password } = req.body;
+
+    const result = await pool.query(
+        "SELECT * FROM users WHERE email = $1",
+        [email]
+    )
+   const user = result.rows[0];
+
+   if(!user){
+    return res.status(404).json({
+        success: false,
+        message: "User not found"
+    })
+   }
+   
+   const isMatch = await bcrypt.compare(
+        password,
+        user.password
+    );
+    if(!isMatch){
+        return res.status(401).json({
+            success: false,
+            message: "Invalid Credentials"
+        })
+    }
+    const token = jwt.sign(
+        {  
+            id: user.id,
+            email: user.email,
+
+        },
+        process.env.JWT_SECRET,
+    )
+    return res.status(200).json({
+        success: true,
+        message: "User logged in successfully",
+        token: token
+    })
+
 }
