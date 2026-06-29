@@ -1,7 +1,9 @@
 import pool from "../config/db.js";
+import { asyncHandler } from "../utils/asyncHandler.js";
 
 
-export const profileController = async(req, res)=>{
+
+export const profileController = asyncHandler(async(req, res)=>{
     const userId = req.user.id;
   
 const result = await pool.query(
@@ -15,4 +17,4 @@ const result = await pool.query(
         message: "user profile fetched successfully",
         
     })
-}
+})

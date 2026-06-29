@@ -2,6 +2,7 @@ import bcrypt from "bcryptjs";
 import pool from "../config/db.js";
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
+import NotFoundError from "../errors/NotFoundError.js";
 
 dotenv.config();
 export const registerController = async(req, res)=>{
@@ -35,10 +36,9 @@ export const loginController = async(req, res)=>{
    const user = result.rows[0];
 
    if(!user){
-    return res.status(404).json({
-        success: false,
-        message: "User not found"
-    })
+    throw new NotFoundError(
+    "User not found"
+);
    }
    
    const isMatch = await bcrypt.compare(

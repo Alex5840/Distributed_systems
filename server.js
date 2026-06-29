@@ -7,6 +7,7 @@ dotenv.config();
 import { auth, validateUser } from "./src/middleware/authMiddleware.js";
 import { loginController, registerController } from "./src/controllers/authController.js";
 import { profileController } from "./src/controllers/profileContoller.js";
+import { errorMiddlware } from "./src/middleware/errorMiddleware.js";
 const app = express();
 app.use(express.json());
 app.get("/", (req,res)=>{
@@ -44,6 +45,7 @@ app.get("/test-db", async (req, res) => {
     res.json(result.rows);
 
 });
+app.use(errorMiddlware);
 app.listen(process.env.PORT, ()=>{
     console.log(`Server running on ${process.env.PORT}`);
 })
