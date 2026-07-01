@@ -8,6 +8,4 @@ class ConflictError extends AppError {
 
     }
 
-}
-
 export default NotFoundError;
